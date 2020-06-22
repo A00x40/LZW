@@ -34,6 +34,7 @@ int main()
             int k = (int)c;
             ch[k].second++;
         }
+        ch[10].second++;
     }
     In.close();
 
