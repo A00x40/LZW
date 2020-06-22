@@ -21,9 +21,6 @@ public:
 	void setDecodedFileLocation(string = "./decoded");
         
 	void encode();
-	void bitConcat(string&, string&);
-	int binary_to_decimal(string&);
-        
 	void decode();
 };
 
