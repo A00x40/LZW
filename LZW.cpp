@@ -2,7 +2,11 @@
 
 LZW::LZW(pair<char,int>ch[])
 {
-	dict_Count = 0;
+	this-> dict_Count = 0;
+
+	this-> Byte8_Count = 0;
+	this-> Byte16_Count = 0;
+
 
 	this->In_File_Location = "\0";
 	this->Encoded_File_Location = "\0";
@@ -13,9 +17,11 @@ LZW::LZW(pair<char,int>ch[])
 	{
 		if (ch[i].second != 0)
 		{
-			unsigned char c = i;
-			this->Dictionary[dict_Count] = string(1,c);
-			dict_Count++;
+			unsigned char s = i;
+			this->Dictionary[dict_Count] = s;
+			this->Value_Dictionary[ string(1,s) ] = dict_Count;
+
+			this-> dict_Count++;
 		}
 	}
 
@@ -58,7 +64,6 @@ void LZW::encode()
 	string Input = "";
 
 	string byte = "";
-	string EncodedIn = "";
 
 	// In Case input File had one line 
 	// The code will enter this condition
@@ -71,102 +76,95 @@ void LZW::encode()
 		// Process characters in each line
 		for (unsigned char c : line)
 		{
-			bool found = false;
-			
-			for (i = 0; i < dict_Count; i++)
+			// Match Found add to Input
+			string nextS = Input + string(1, c);
+			if ( this->Value_Dictionary.find( nextS ) != Value_Dictionary.end() )
 			{
-				// Match Found add to Input
-				if (this->Dictionary[i] == Input + string(1, c) )
-				{
-					Input += c;
-					found = true;
-					break;
-				}
-				
+				Input += c;
 			}
 
 			// No Match Found
 			// Encode Last Match Index
 			// Add Current Match + Char to Dictionary
-			if (found == false)
+			else
 			{
-				for (i = 0; i < dict_Count; i++)
-				{
-			       if (this->Dictionary[i] == Input)
-			       {
-				      Last_Match = i;
-			       }
-				}
-				byte += to_string(Last_Match);
-				bitConcat(byte, EncodedIn);
+				Last_Match = this->Value_Dictionary[Input];
 
-				this->Dictionary[dict_Count++] = Input + string(1, c);
-				Input = c;
+				if (Last_Match < 256) // 2^8
+				{
+					char bytes[1] = { (unsigned char)(Last_Match) & 0xFF };
+					Encoded.write(bytes,1);
+					this->Byte8_Count++;
+				}
+				else if (Last_Match < 65536) // 2^16
+				{
+					char bytes[2] = { (unsigned char)(Last_Match >> 16) & 0xFF,
+								      (unsigned char)(Last_Match >> 8) & 0xFF
+					};
+					Encoded.write(bytes, 2);
+					this->Byte16_Count++;
+				}
+				else // 2^24
+				{
+					char bytes[3] = { (unsigned char)(Last_Match >> 16) & 0xFF,
+								  (unsigned char)(Last_Match >> 8) & 0xFF,
+								  (unsigned char)(Last_Match) & 0xFF
+					};
+					Encoded.write(bytes, 3);
+				}
 				
+
+				dict_Count++;
+				this->Dictionary[dict_Count] = Input + string(1, c);
+				this->Value_Dictionary[Input + string(1, c)] = dict_Count;
+				
+				Input = c;
 			}
 		}
 		// Encode new Line or Last String if Last \n in File
 		if (!In.eof())
 		{
 			//New Line 
-			bool fnl = false;
-			for (int i = 0; i < dict_Count; i++)
+			if (this->Value_Dictionary.find(Input + string(1, '\n')) != Value_Dictionary.end())
 			{
-				if (this->Dictionary[i] == Input + string(1, '\n'))
-				{
-					Input += '\n';
-					fnl = true;
-					break;
-				}
+				Input += '\n';
 			}
-			if (!fnl)
+			else
 			{
-				for (i = 0; i < dict_Count; i++)
+				if (Last_Match < 256) // 2^8
 				{
-					if (this->Dictionary[i] == Input)
-					{
-						Last_Match = i;
-					}
+					char bytes[1] = { (unsigned char)(Last_Match) & 0xFF };
+					Encoded.write(bytes, 1);
 				}
-				byte += to_string(Last_Match);
-				bitConcat(byte, EncodedIn);
+				else if (Last_Match < 65536) // 2^16
+				{
+					char bytes[2] = { (unsigned char)(Last_Match >> 16) & 0xFF,
+									  (unsigned char)(Last_Match >> 8) & 0xFF
+					};
+					Encoded.write(bytes, 2);
+				}
+				else // 2^24
+				{
+					char bytes[3] = { (unsigned char)(Last_Match >> 16) & 0xFF,
+								  (unsigned char)(Last_Match >> 8) & 0xFF,
+								  (unsigned char)(Last_Match) & 0xFF
+					};
+					Encoded.write(bytes, 3);
+				}
 
-				this->Dictionary[dict_Count++] = Input + string(1, '\n');
+				dict_Count++;
+				this->Dictionary[dict_Count] = Input + string(1, '\n');
+				this->Value_Dictionary[Input + string(1, '\n')] = dict_Count;
+
 				Input = '\n';
 			}
 		}
 		
 	}
-	int count = 8 - byte.size();
-	if (byte.size() < 8)
-	{
-		//append number of 'count' '0' to the last few codes to create the last byte of text
-		byte.append(count, '0');
-	}
-	EncodedIn += (unsigned char)binary_to_decimal(byte);
-	Encoded.write(EncodedIn.c_str , EncodedIn.size);
 
 	In.close();
 	Encoded.close();
 	cout << "\nFinished Encoding\n";
-}
-
-void LZW::bitConcat(string& byte, string& in)
-{
-	while (byte.size() >= 8)
-	{
-		//cut into 8-bit binary codes that can convert into saving char needed for binary file
-		string ch = byte.substr(0, 8);
-		in += (unsigned char)binary_to_decimal(ch);
-		byte = byte.substr(8);
-	}
-}
-int LZW::binary_to_decimal(string& in)
-{
-	int result = 0;
-	for (int i = 0; i < in.size(); i++)
-		result = result * 2 + in[i] - '0';
-	return result;
 }
 
 void LZW::decode()
@@ -185,14 +183,39 @@ void LZW::decode()
 		exit(1);
 
 	string line;
-	;
-	while (getline(Encoded,line))
+	
+	while (!Encoded.eof())
 	{
-		for (unsigned char index : line)
+		for (int i = 0; i < this->Byte8_Count; i++)
 		{
-			int i = int(index) - 48;
-			Decoded << Dictionary[i];
+			char bytes[1];
+			Encoded.read(bytes, 1);
+
+			int Val = int( (unsigned char)bytes[0] );
+
+			Decoded << Dictionary[Val];
 		}
+
+		for (int i = 0; i < this->Byte16_Count; i++)
+		{
+			char bytes[2];
+			Encoded.read(bytes, 2);
+
+			int Val = int((unsigned char)bytes[0] << 8 |
+				          (unsigned char)bytes[1]
+	        );
+			Decoded << Dictionary[Val];
+		}
+
+		char bytes[3];
+		while (Encoded.read(bytes, 3))
+		{
+			int Val = int((unsigned char)bytes[0] << 16 |
+				(unsigned char)bytes[1] << 8 |
+				(unsigned char)bytes[2]
+			);
+			Decoded << Dictionary[Val];
+		}		
 	}
 	Encoded.close();
 	Decoded.close();
