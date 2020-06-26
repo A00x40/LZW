@@ -37,25 +37,46 @@ int main()
         ch[10].second++;
     }
     In.close();
-
-
+    
+    
     // Second Perform the Required Task
     LZW Task( ch );
-
+    
     Task.setInFileLocation(In_File_Location);
 
-    cout << "\n\nEnter the Location to save the Encoded File: ";
-    Task.setEncodedFileLocation();
+    cout << "\n\nPress 0 For Encoding / 1 For Decoding : ";
 
-    cout << "\n\nEncoding ................................... ";
-    Task.encode();
+    string Operation;
+    getline(cin, Operation);
 
+    // Encoding
+    if (Operation == "0")
+    {
+        cout << "\n\nEnter the Location to save the Encoded File: ";
 
-    cout << "\n\nEnter the Location to save the Decoded File: ";
-    Task.setDecodedFileLocation();
+        string Encoded_File_Location;
+        getline(cin, Encoded_File_Location);
 
-    cout << "\n\nDecoding ................................... ";
-    Task.decode();
+        Task.setEncodedFileLocation(Encoded_File_Location);
 
+        cout << "\n\nEncoding ................................... ";
+        Task.encode();
+    }
 
+    // Decoding
+    else if (Operation == "1")
+    {
+        cout << "\n\nEnter the Location to save the Decoded File: ";
+
+        string Decoded_File_Location;
+        getline(cin, Decoded_File_Location);
+
+        Task.setEncodedFileLocation("");
+        Task.setDecodedFileLocation(Decoded_File_Location);
+
+        cout << "\n\nDecoding ................................... ";
+        Task.decode();
+    }
+    cout << "\n\nFinished Task\n\n";
+    exit(0);
 }
